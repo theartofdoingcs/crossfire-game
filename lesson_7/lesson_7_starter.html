@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Crossfire</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+
+<style>
+body { margin:0; background:#111111; display:grid; place-items:center; height:100vh; }
+canvas { border-radius:14px; box-shadow:0 18px 60px rgba(0,0,0,.65); }
+</style>
+</head>
+
+<body>
+<script>
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CROSSFIRE - Lesson 7
+Mechanic Expansion: Overdrive Pickups
+
+TIP: Press Ctrl+F (or Cmd+F) and search "MISSION" to jump through tasks
+
+MISSION CHECKLIST:
+[ ] MISSION 1 - Adjust the pickup system constants.
+[ ] MISSION 2 - Reset pickup variables on game start.
+[ ] MISSION 3 - Complete the pickup data structure.
+[ ] MISSION 4 - Spawn pickups into the world.
+[ ] MISSION 5 - Draw the pickups.
+[ ] MISSION 6 - Detect player pickup collisions.
+[ ] MISSION 7 - Restore overdrive when collecting a pickup.
+[ ] MISSION 8 - Prevent overdrive from exceeding the maximum.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            --- STUDENT EDIT ZONE (SAFE TO MODIFY) ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Constants
+const CANVAS_WIDTH = 900;
+const CANVAS_HEIGHT = 600;
+const HUD_HEIGHT = 60;
+
+const PLAYER_RADIUS = 18;
+const PLAYER_SPEED = 300; //dt-converted: 5 px/frame at ~60fps -> 300 px/sec
+
+const GRID_SPACING = 50;
+
+const TURRET_SIZE = 40;
+const TURRET_CORE_SIZE = 16;
+const TURRET_FIRE_INTERVAL_MIN = 1.25; //dt-converted: 75 frames at ~60fps -> 1.25 sec
+const TURRET_FIRE_INTERVAL_MAX = 1.75;  //dt-converted: 105 frames at ~60fps -> 1.75 sec
+
+const PROJECTILE_RADIUS = 8;
+//const PROJECTILE_SPEED = 4.5;
+
+const MAX_OVERDRIVE = 100;
+const OVERDRIVE_DRAIN = 72; //dt-converted: 1.2 per frame at ~60fps -> 72 per sec
+const OVERDRIVE_RADIUS = 30;
+
+const RAMP_TIME_SECONDS = 75;
+const PROJECTILE_SPEED_START = 270; //dt-converted: 4.5 px/frame at ~60fps -> 270 px/sec
+const PROJECTILE_SPEED_END = 520;
+const ACTIVE_TURRETS_START = 1;
+const ACTIVE_TURRETS_END = 5;
+
+const TURRET_OFFSET = 80;
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MISSION 1 - PICKUP CONSTANTS
+
+Adjust the pickup system constants.
+Control spawn timing, size, and restore amount.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+const PICKUP_RADIUS = 1;
+const PICKUP_SPAWN_INTERVAL_SECONDS = 1;
+const OVERDRIVE_RESTORE_PER_PICKUP = 1;
+
+//Color Palettes
+const BG_COLOR = "#16241B";                 
+const GRID_LINE_COLOR = "rgba(160, 200, 160, 0.05)";
+
+const HUD_BG_COLOR = "rgba(0, 0, 0, 0.65)";
+const TEXT_COLOR = "#E6EDF3";
+
+const PLAYER_BODY_COLOR = "#D9E1E8";        
+const PLAYER_CORE_COLOR = "#FF3B3B";        
+
+const OVERLAY_BG_COLOR = "rgba(0, 0, 0, 0.66)";
+
+const TURRET_BODY_COLOR = "#9AA7A1";
+const TURRET_CORE_COLOR = "#FFB703";
+
+const PROJECTILE_COLOR = "#FFD166";
+
+const OVERDRIVE_BAR_BG_COLOR = "rgba(255, 255, 255, 0.18)";
+const OVERDRIVE_BAR_FILL_COLOR = "#42D392";
+
+const OVERDRIVE_COLOR = "rgba(66, 211, 146, 0.85)";
+
+const PICKUP_BODY_COLOR = "#42D392";
+const PICKUP_CORE_COLOR = "#E6FFF4";
+
+//Game Fonts
+const GAME_FONT = "monospace";
+
+//Game States
+const GAME_MODE = { START: "START", PLAY: "PLAY", LOSE: "LOSE" };
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                --- END OF STUDENT EDIT ZONE ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Variables
+let player = { x: 0, y: 0 };
+
+let currentGameMode = GAME_MODE.START;
+
+let turrets = [];
+let projectiles = [];
+
+let overdrive = 0;
+let overdriveActive = false;
+
+let runTimeSeconds = 0;
+
+let ramp = 0;
+let projectileSpeed = 0;
+let activeTurretCount = 0;
+
+let pickups = [];
+let pickupSpawnTimerSeconds = 0;
+
+
+//p5 game loop functions (called automatically at start / every frame)
+function setup(){
+    createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    textFont(GAME_FONT);
+    resetGameToDefaults();
+}
+
+function draw(){
+    //deltaTime is milliseconds since last frame -> convert to seconds
+    //clamp prevents giant jumps during lag spikes
+    const dt = min(0.033, deltaTime / 1000);
+    
+    if (currentGameMode === GAME_MODE.PLAY){
+        runTimeSeconds += dt;
+        updateRampValues();
+        updatePlayer(dt);
+        updateOverdrive(dt);
+        updateTurrets(dt);
+        updateProjectiles(dt);
+        updatePickupSpawning(dt);
+        checkPlayerProjectileCollisions();
+        checkPlayerPickupCollisions();
+    }
+    drawScene();
+}
+
+function keyPressed(){
+    if (keyCode === ENTER){
+        if (currentGameMode === GAME_MODE.START || currentGameMode === GAME_MODE.LOSE){
+            resetGameToDefaults();
+            currentGameMode = GAME_MODE.PLAY;
+        }
+    }
+
+    if (key === "r" || key === "R"){
+        resetGameToDefaults();
+        currentGameMode = GAME_MODE.START;
+    }
+}
+
+
+//Our own personal functions to UPDATE various aspects of the game
+function resetGameToDefaults(){
+    player.x = width / 2;
+    player.y = (HUD_HEIGHT + height) / 2 + 120;
+
+    turrets = [];
+    projectiles = [];
+
+    spawnTurret(width / 2, (HUD_HEIGHT + height) / 2);
+
+    overdrive = MAX_OVERDRIVE;
+    overdriveActive = false;
+
+    runTimeSeconds = 0;
+
+    ramp = 0;
+    projectileSpeed = PROJECTILE_SPEED_START;
+    activeTurretCount = ACTIVE_TURRETS_START;
+
+    spawnTurret(TURRET_OFFSET, HUD_HEIGHT + TURRET_OFFSET);
+    spawnTurret(width - TURRET_OFFSET, HUD_HEIGHT + TURRET_OFFSET);
+    spawnTurret(TURRET_OFFSET, height - TURRET_OFFSET);
+    spawnTurret(width - TURRET_OFFSET, height - TURRET_OFFSET);
+
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 2 - RESET PICKUPS
+
+    Reset pickup variables on game start.
+    Ensure pickups and timers initialize correctly.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+    
+}
+
+function updateRampValues(){
+    ramp = constrain(runTimeSeconds / RAMP_TIME_SECONDS, 0, 1);
+    projectileSpeed = lerp(PROJECTILE_SPEED_START, PROJECTILE_SPEED_END, ramp);
+    activeTurretCount = round(lerp(ACTIVE_TURRETS_START, ACTIVE_TURRETS_END, ramp));
+}
+
+function updatePlayer(dt){
+    const moveDirection = getInputDirection();
+
+    player.x += moveDirection.dx * PLAYER_SPEED * dt;
+    player.y += moveDirection.dy * PLAYER_SPEED * dt;
+
+    player.x = constrain(player.x, PLAYER_RADIUS, width - PLAYER_RADIUS);
+    player.y = constrain(player.y, HUD_HEIGHT + PLAYER_RADIUS, height - PLAYER_RADIUS);
+}
+
+function getInputDirection(){
+    let dx = 0;
+    let dy = 0;
+
+    if (keyIsDown(65) || keyIsDown(LEFT_ARROW))  dx -= 1;
+    if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) dx += 1;
+    if (keyIsDown(87) || keyIsDown(UP_ARROW))    dy -= 1;
+    if (keyIsDown(83) || keyIsDown(DOWN_ARROW))  dy += 1;
+
+    return { dx, dy };
+}
+
+function updateOverdrive(dt){
+    overdriveActive = false;
+
+    if (keyIsDown(32) && overdrive > 0){
+        overdriveActive = true;
+        overdrive -= OVERDRIVE_DRAIN * dt;
+        overdrive = constrain(overdrive, 0, MAX_OVERDRIVE);
+    }
+}
+
+function generateTurretData(x, y){
+    const fireInterval = random(TURRET_FIRE_INTERVAL_MIN, TURRET_FIRE_INTERVAL_MAX);
+    
+    return {
+        x: x,
+        y: y,
+        fireInterval: fireInterval,
+        fireTimer: fireInterval
+    };
+}
+
+function spawnTurret(x, y){
+    turrets.push(generateTurretData(x, y));
+}
+
+function updateTurrets(dt){
+    for (let i = 0; i < activeTurretCount; i++){
+        const turret = turrets[i];
+
+        turret.fireTimer -= dt;
+
+        if (turret.fireTimer <= 0){
+            spawnProjectile(turret);
+            turret.fireTimer = turret.fireInterval;
+        }
+    }
+}
+
+function generateProjectileData(turret){
+    const dx = player.x - turret.x;
+    const dy = player.y - turret.y;
+    const len = sqrt(dx ** 2 + dy ** 2);
+
+    return {
+        x: turret.x,
+        y: turret.y,
+        vx: (dx / len) * projectileSpeed,
+        vy: (dy / len) * projectileSpeed
+    };
+}
+
+function spawnProjectile(turret){
+    projectiles.push(generateProjectileData(turret));
+}
+
+function updateProjectiles(dt){
+    for (let i = projectiles.length - 1; i >= 0; i--){
+        const projectile = projectiles[i]
+        projectile.x += projectile.vx * dt;
+        projectile.y += projectile.vy * dt;
+
+        if (
+            projectile.x < -PROJECTILE_RADIUS ||
+            projectile.x > width + PROJECTILE_RADIUS ||
+            projectile.y < HUD_HEIGHT - PROJECTILE_RADIUS ||
+            projectile.y > height + PROJECTILE_RADIUS
+        ){
+            projectiles.splice(i, 1);
+        }
+    }
+}
+
+function checkPlayerProjectileCollisions(){
+    for (let i = projectiles.length - 1; i >= 0; i--){
+        const projectile = projectiles[i]
+        
+        const dx = projectile.x - player.x;
+        const dy = projectile.y - player.y;
+        const hitZone = PLAYER_RADIUS + PROJECTILE_RADIUS;
+        
+    
+        if (overdriveActive){
+            const overdriveZone = OVERDRIVE_RADIUS + PROJECTILE_RADIUS;
+            if (dx ** 2 + dy ** 2 <= overdriveZone ** 2){
+                projectiles.splice(i, 1);
+                continue;
+            }
+        }
+
+        if (dx ** 2 + dy ** 2 <= hitZone ** 2){
+            currentGameMode = GAME_MODE.LOSE;
+            return;
+        }
+    }
+}
+
+function generatePickupData(){
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 3 - PICKUP DATA
+
+    Complete the pickup data structure.
+    Define position values for each pickup.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    return {
+        x: 5,
+        y: 5
+    };
+}
+
+function spawnPickup(){
+    pickups.push(generatePickupData());
+}
+
+function updatePickupSpawning(dt){
+    pickupSpawnTimerSeconds -= dt;
+
+    if (pickupSpawnTimerSeconds <= 0){
+        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        MISSION 4 - SPAWN PICKUPS
+
+        Spawn pickups into the world.
+        Add new pickup data into the pickups array.
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+    }
+}
+
+function checkPlayerPickupCollisions(){
+    for (let i = pickups.length - 1; i >= 0; i--){
+        const pickup = pickups[i];
+        const dx = pickup.x - player.x;
+        const dy = pickup.y - player.y;
+        const hitZone = PLAYER_RADIUS + PICKUP_RADIUS;
+
+        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        MISSION 6 - PICKUP COLLISION
+
+        Detect player pickup collisions.
+        Check distance between the player and each pickup.
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+        if (false){
+            /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            MISSION 7 - RESTORE OVERDRIVE
+
+            Restore overdrive when collecting a pickup.
+            Increase the resource based on the restore amount.
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+            
+
+            /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            MISSION 8 - OVERDRIVE CLAMP
+
+            Prevent overdrive from exceeding the maximum.
+            Clamp the value within valid limits.
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+            
+            
+            pickups.splice(i, 1);
+        }
+    }
+}
+
+
+//Our own personal function to DRAW various aspects of the game
+function drawScene(){
+    drawBackground();
+    drawTurrets();
+    drawPickups();
+    drawProjectiles();
+    drawPlayer();
+    drawHud();
+
+    if (currentGameMode === GAME_MODE.START)        drawStartOverlay();
+    else if (currentGameMode === GAME_MODE.LOSE)    drawLoseOverlay();
+}
+
+function drawBackground(){
+    background(BG_COLOR);
+
+    stroke(GRID_LINE_COLOR);
+    strokeWeight(1);
+
+    //vertical lines
+    for (let x = 0; x <= width; x += GRID_SPACING){
+        line(x, 0, x, height);
+    }
+
+    //horizontal lines
+    for (let y = 0; y <= height; y += GRID_SPACING){
+        line(0, y, width, y);
+    }
+}
+
+function drawTurrets(){
+    noStroke();
+
+    for (let i = 0; i < activeTurretCount; i++){
+        const turret = turrets[i];
+        
+        const x = turret.x - TURRET_SIZE / 2;
+        const y = turret.y - TURRET_SIZE / 2;
+
+        fill(TURRET_BODY_COLOR);
+        rect(x, y, TURRET_SIZE, TURRET_SIZE, 4);
+
+        const coreX = turret.x - TURRET_CORE_SIZE / 2;
+        const coreY = turret.y - TURRET_CORE_SIZE / 2;
+
+        fill(TURRET_CORE_COLOR);
+        rect(coreX, coreY, TURRET_CORE_SIZE, TURRET_CORE_SIZE, 2);
+    }
+}
+
+function drawPickups(){
+    noStroke();
+
+    for (const pickup of pickups){
+        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        MISSION 5 - DRAW PICKUPS
+
+        Draw the pickups.
+        Render both the body and core of each pickup.
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+        
+    }
+}
+
+function drawProjectiles(){
+    noStroke();
+
+    for (const projectile of projectiles){
+        fill(PROJECTILE_COLOR);
+        circle(projectile.x, projectile.y, PROJECTILE_RADIUS * 2);
+    }
+}
+
+function drawPlayer(){
+    noStroke();
+
+    //outer body
+    fill(PLAYER_BODY_COLOR);
+    circle(player.x, player.y, PLAYER_RADIUS * 2);
+
+    //inner core
+    fill(PLAYER_CORE_COLOR);
+    circle(player.x, player.y, PLAYER_RADIUS);
+
+    if (overdriveActive){
+        noFill();
+        stroke(OVERDRIVE_COLOR);
+        strokeWeight(4);
+        circle(player.x, player.y, OVERDRIVE_RADIUS * 2);
+    }
+}
+
+function drawHud(){
+    noStroke();
+    fill(HUD_BG_COLOR);
+    rect(0, 0, width, HUD_HEIGHT);
+
+    fill(TEXT_COLOR);
+    textAlign(LEFT, CENTER);
+
+    textSize(18);
+    text("CROSSFIRE", 15, 25);
+
+    textSize(14);
+    text("Move: WASD / Arrows", 15, 45);
+
+    textAlign(RIGHT, CENTER);
+    text("Time: " + runTimeSeconds.toFixed(1) + "s", width - 15, 45);
+
+    drawOverdriveBar();
+    drawRampReadout();
+}
+
+function drawOverdriveBar(){
+    const barWidth = 180;
+    const barHeight = 14;
+    const barX = width - barWidth - 15;
+    const barY = 18;
+
+    fill(TEXT_COLOR);
+    textAlign(RIGHT, CENTER);
+    text("OVERDRIVE", barX - 8, barY + barHeight / 2);
+
+    fill(OVERDRIVE_BAR_BG_COLOR);
+    rect(barX, barY, barWidth, barHeight, 6);
+
+    fill(OVERDRIVE_BAR_FILL_COLOR);
+    rect(barX, barY, barWidth * (overdrive / MAX_OVERDRIVE), barHeight, 6);
+}
+
+function drawRampReadout(){
+    fill(TEXT_COLOR);
+    textAlign(CENTER, CENTER);
+    textSize(14);
+
+    const rampText = floor(ramp * 100) + "%";
+    const projectileSpeedText = projectileSpeed.toFixed(1);
+    const turretCountText = activeTurretCount;
+
+    text(
+        "Ramp: " + rampText +
+        " | Projectile Speed: " + projectileSpeedText +
+        " | Active Turrets: " + turretCountText,
+        width / 2,
+        100
+    );
+}
+
+function drawStartOverlay(){
+    noStroke();
+
+    fill(OVERLAY_BG_COLOR);
+    rect(0, 0, width, height);
+
+    fill(TEXT_COLOR);
+    textAlign(CENTER, CENTER);
+
+    textSize(60);
+    text("CROSSFIRE", width / 2, height * 0.30);
+
+    textSize(18);
+    text("Enemy weapon systems are coming online across the battlefield.", width / 2, height * 0.44);
+    text("Stay mobile and survive the incoming crossfire.", width / 2, height * 0.55);
+    text("Press ENTER to begin", width / 2, height * 0.66);
+}
+
+function drawLoseOverlay(){
+    noStroke();
+
+    fill(OVERLAY_BG_COLOR);
+    rect(0, 0, width, height);
+
+    fill(TEXT_COLOR);
+    textAlign(CENTER, CENTER);
+
+    textSize(56);
+    text("UNIT DESTROYED", width / 2, height * 0.30);
+
+    textSize(18);
+    text("You were caught in enemy crossfire.", width / 2, height * 0.44);
+    text("Press ENTER to restart", width / 2, height * 0.55);
+    text("Press R for title screen", width / 2, height * 0.66);
+}
+</script>
+</body>
+</html>

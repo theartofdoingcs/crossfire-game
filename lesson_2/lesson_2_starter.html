@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Crossfire</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+
+<style>
+body { margin:0; background:#111111; display:grid; place-items:center; height:100vh; }
+canvas { border-radius:14px; box-shadow:0 18px 60px rgba(0,0,0,.65); }
+</style>
+</head>
+
+<body>
+<script>
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CROSSFIRE - Lesson 2
+Game States and Overlay Screens
+
+TIP: Press Ctrl+F (or Cmd+F) and search "MISSION" to jump through tasks
+
+MISSION CHECKLIST:
+[ ] MISSION 1 - Add the game state values.
+[ ] MISSION 2 - Set the current game mode to the title screen.
+[ ] MISSION 3 - Draw the start screen overlay.
+[ ] MISSION 4 - Draw the lose screen overlay.
+[ ] MISSION 5 - Show the correct overlay for the current game state.
+[ ] MISSION 6 - Update the game so movement only happens in PLAY mode.
+[ ] MISSION 7 - Start the game when ENTER is pressed.
+[ ] MISSION 8 - Return to the title screen with R.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            --- STUDENT EDIT ZONE (SAFE TO MODIFY) ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Constants
+const CANVAS_WIDTH = 900;
+const CANVAS_HEIGHT = 600;
+const HUD_HEIGHT = 60;
+
+const PLAYER_RADIUS = 18;
+const PLAYER_SPEED = 5;
+
+const GRID_SPACING = 50;
+
+//Color Palettes
+const BG_COLOR = "#16241B";                 
+const GRID_LINE_COLOR = "rgba(160, 200, 160, 0.05)";
+
+const HUD_BG_COLOR = "rgba(0, 0, 0, 0.65)";
+const TEXT_COLOR = "#E6EDF3";
+
+const PLAYER_BODY_COLOR = "#D9E1E8";        
+const PLAYER_CORE_COLOR = "#FF3B3B";        
+
+const OVERLAY_BG_COLOR = "rgba(0, 0, 0, 0.66)";
+
+//Game Fonts
+const GAME_FONT = "monospace";
+
+//Game States
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MISSION 1 - GAME STATE VALUES
+
+Add the game state values for Start, Play, and Lose.
+Use clear names so the game can switch between modes.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+const GAME_MODE = { };
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                --- END OF STUDENT EDIT ZONE ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Variables
+let player = { x: 0, y: 0 };
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MISSION 2 - STARTING GAME MODE
+
+Set the current game mode to the title screen.
+Make the game begin in the correct state.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+let currentGameMode = null;
+
+
+//p5 game loop functions (called automatically at start / every frame)
+function setup(){
+    createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    textFont(GAME_FONT);
+    resetGameToDefaults();
+}
+
+function draw(){
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 6 - PLAY MODE UPDATE
+
+    Only update movement during PLAY mode.
+    Stop the game action while overlays are showing.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (true){
+        updatePlayer();
+    }
+    drawScene();
+}
+
+function keyPressed(){
+    if (keyCode === ENTER){
+        if (currentGameMode === GAME_MODE.START || currentGameMode === GAME_MODE.LOSE){
+            /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            MISSION 7 - START TRANSITION
+
+            Start the game when ENTER is pressed.
+            Switch from the title or lose screen into PLAY mode.
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+        }
+    }
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 8 - TITLE SCREEN TRANSITION
+
+    Return to the title screen with R.
+    Reset the game and switch back to START mode.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (false){
+        resetGameToDefaults();
+        currentGameMode = GAME_MODE.START;
+    }
+
+    //Debug: force lose screen
+    if (key === "g" || key === "G"){
+        if (currentGameMode === GAME_MODE.PLAY){
+            currentGameMode = GAME_MODE.LOSE;
+        }
+    }
+}
+
+
+//Our own personal functions to UPDATE various aspects of the game
+function resetGameToDefaults(){
+    player.x = width / 2;
+    player.y = (HUD_HEIGHT + height) / 2 + 120;
+}
+
+function updatePlayer(){
+    const moveDirection = getInputDirection();
+
+    player.x += moveDirection.dx * PLAYER_SPEED;
+    player.y += moveDirection.dy * PLAYER_SPEED;
+
+    player.x = constrain(player.x, PLAYER_RADIUS, width - PLAYER_RADIUS);
+    player.y = constrain(player.y, HUD_HEIGHT + PLAYER_RADIUS, height - PLAYER_RADIUS);
+}
+
+function getInputDirection(){
+    let dx = 0;
+    let dy = 0;
+
+    if (keyIsDown(65) || keyIsDown(LEFT_ARROW))  dx -= 1;
+    if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) dx += 1;
+    if (keyIsDown(87) || keyIsDown(UP_ARROW))    dy -= 1;
+    if (keyIsDown(83) || keyIsDown(DOWN_ARROW))  dy += 1;
+
+    return { dx, dy };
+}
+
+
+//Our own personal function to DRAW various aspects of the game
+function drawScene(){
+    drawBackground();
+    drawPlayer();
+    drawHud();
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 5 - STATE OVERLAY RULE
+
+    Show the correct overlay for the current game state.
+    Display the start or lose screen only when needed.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+}
+
+function drawBackground(){
+    background(BG_COLOR);
+
+    stroke(GRID_LINE_COLOR);
+    strokeWeight(1);
+
+    //vertical lines
+    for (let x = 0; x <= width; x += GRID_SPACING){
+        line(x, 0, x, height);
+    }
+
+    //horizontal lines
+    for (let y = 0; y <= height; y += GRID_SPACING){
+        line(0, y, width, y);
+    }
+}
+
+function drawPlayer(){
+    noStroke();
+
+    //outer body
+    fill(PLAYER_BODY_COLOR);
+    circle(player.x, player.y, PLAYER_RADIUS * 2);
+
+    //inner core
+    fill(PLAYER_CORE_COLOR);
+    circle(player.x, player.y, PLAYER_RADIUS);
+}
+
+function drawHud(){
+    noStroke();
+    fill(HUD_BG_COLOR);
+    rect(0, 0, width, HUD_HEIGHT);
+
+    fill(TEXT_COLOR);
+    textAlign(LEFT, CENTER);
+
+    textSize(18);
+    text("CROSSFIRE", 15, 25);
+
+    textSize(14);
+    text("Move: WASD / Arrows", 15, 45);
+}
+
+function drawStartOverlay(){
+    noStroke();
+
+    fill(OVERLAY_BG_COLOR);
+    rect(0, 0, width, height);
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 3 - START OVERLAY
+
+    Draw the start screen overlay.
+    Show the title over the game board.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+    textSize(18);
+    text("Enemy weapon systems are coming online across the battlefield.", width / 2, height * 0.44);
+    text("Stay mobile and survive the incoming crossfire.", width / 2, height * 0.55);
+    text("Press ENTER to begin", width / 2, height * 0.66);
+}
+
+function drawLoseOverlay(){
+    noStroke();
+
+    fill(OVERLAY_BG_COLOR);
+    rect(0, 0, width, height);
+
+    fill(TEXT_COLOR);
+    textAlign(CENTER, CENTER);
+
+    textSize(56);
+    text("UNIT DESTROYED", width / 2, height * 0.30);
+
+    textSize(18);
+    text("You were caught in enemy crossfire.", width / 2, height * 0.44);
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 4 - LOSE OVERLAY
+
+    Draw the lose screen overlay.
+    Show the restart instructions.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+}
+</script>
+</body>
+</html>

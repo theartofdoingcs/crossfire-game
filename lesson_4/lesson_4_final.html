@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Crossfire</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+
+<style>
+body { margin:0; background:#111111; display:grid; place-items:center; height:100vh; }
+canvas { border-radius:14px; box-shadow:0 18px 60px rgba(0,0,0,.65); }
+</style>
+</head>
+
+<body>
+<script>
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CROSSFIRE - Lesson 4
+Resource System: Overdrive
+
+TIP: Press Ctrl+F (or Cmd+F) and search "MISSION" to jump through tasks
+
+MISSION CHECKLIST:
+[ ] MISSION 1 - Add the Overdrive constants.
+[ ] MISSION 2 - Reset Overdrive at the start of the game.
+[ ] MISSION 3 - Draw the Overdrive bar background.
+[ ] MISSION 4 - Draw the Overdrive bar fill.
+[ ] MISSION 5 - Trigger Overdrive while holding SPACE.
+[ ] MISSION 6 - Draw the Overdrive shield.
+[ ] MISSION 7 - Limit Overdrive use when empty.
+[ ] MISSION 8 - Prevent death while Overdrive is active.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            --- STUDENT EDIT ZONE (SAFE TO MODIFY) ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Constants
+const CANVAS_WIDTH = 900;
+const CANVAS_HEIGHT = 600;
+const HUD_HEIGHT = 60;
+
+const PLAYER_RADIUS = 18;
+const PLAYER_SPEED = 5;
+
+const GRID_SPACING = 50;
+
+const TURRET_SIZE = 40;
+const TURRET_CORE_SIZE = 16;
+const TURRET_FIRE_INTERVAL_MIN = 75;
+const TURRET_FIRE_INTERVAL_MAX = 105;
+
+const PROJECTILE_RADIUS = 8;
+const PROJECTILE_SPEED = 4.5;
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MISSION 1 - OVERDRIVE CONSTANTS
+
+Add the constants for the Overdrive system.
+Define the values used for the resource and shield.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+const MAX_OVERDRIVE = 100;
+const OVERDRIVE_DRAIN = 1.2;
+const OVERDRIVE_RADIUS = 30;
+
+//Color Palettes
+const BG_COLOR = "#16241B";                 
+const GRID_LINE_COLOR = "rgba(160, 200, 160, 0.05)";
+
+const HUD_BG_COLOR = "rgba(0, 0, 0, 0.65)";
+const TEXT_COLOR = "#E6EDF3";
+
+const PLAYER_BODY_COLOR = "#D9E1E8";        
+const PLAYER_CORE_COLOR = "#FF3B3B";        
+
+const OVERLAY_BG_COLOR = "rgba(0, 0, 0, 0.66)";
+
+const TURRET_BODY_COLOR = "#9AA7A1";
+const TURRET_CORE_COLOR = "#FFB703";
+
+const PROJECTILE_COLOR = "#FFD166";
+
+const OVERDRIVE_BAR_BG_COLOR = "rgba(255, 255, 255, 0.18)";
+const OVERDRIVE_BAR_FILL_COLOR = "#42D392";
+
+const OVERDRIVE_COLOR = "rgba(66, 211, 146, 0.85)";
+
+//Game Fonts
+const GAME_FONT = "monospace";
+
+//Game States
+const GAME_MODE = { START: "START", PLAY: "PLAY", LOSE: "LOSE" };
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                --- END OF STUDENT EDIT ZONE ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Variables
+let player = { x: 0, y: 0 };
+
+let currentGameMode = GAME_MODE.START;
+
+let turrets = [];
+let projectiles = [];
+
+let overdrive = 0;
+let overdriveActive = false;
+
+
+//p5 game loop functions (called automatically at start / every frame)
+function setup(){
+    createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    textFont(GAME_FONT);
+    resetGameToDefaults();
+}
+
+function draw(){
+    if (currentGameMode === GAME_MODE.PLAY){
+        updatePlayer();
+        updateOverdrive();
+        updateTurrets();
+        updateProjectiles();
+        checkPlayerProjectileCollisions();
+    }
+    drawScene();
+}
+
+function keyPressed(){
+    if (keyCode === ENTER){
+        if (currentGameMode === GAME_MODE.START || currentGameMode === GAME_MODE.LOSE){
+            resetGameToDefaults();
+            currentGameMode = GAME_MODE.PLAY;
+        }
+    }
+
+    if (key === "r" || key === "R"){
+        resetGameToDefaults();
+        currentGameMode = GAME_MODE.START;
+    }
+}
+
+
+//Our own personal functions to UPDATE various aspects of the game
+function resetGameToDefaults(){
+    player.x = width / 2;
+    player.y = (HUD_HEIGHT + height) / 2 + 120;
+
+    turrets = [];
+    projectiles = [];
+
+    spawnTurret(width / 2, (HUD_HEIGHT + height) / 2);
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 2 - RESET RESOURCE
+
+    Reset Overdrive at the start of the game.
+    Make sure the player begins with a full charge.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    overdrive = MAX_OVERDRIVE;
+    overdriveActive = false;
+}
+
+function updatePlayer(){
+    const moveDirection = getInputDirection();
+
+    player.x += moveDirection.dx * PLAYER_SPEED;
+    player.y += moveDirection.dy * PLAYER_SPEED;
+
+    player.x = constrain(player.x, PLAYER_RADIUS, width - PLAYER_RADIUS);
+    player.y = constrain(player.y, HUD_HEIGHT + PLAYER_RADIUS, height - PLAYER_RADIUS);
+}
+
+function getInputDirection(){
+    let dx = 0;
+    let dy = 0;
+
+    if (keyIsDown(65) || keyIsDown(LEFT_ARROW))  dx -= 1;
+    if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) dx += 1;
+    if (keyIsDown(87) || keyIsDown(UP_ARROW))    dy -= 1;
+    if (keyIsDown(83) || keyIsDown(DOWN_ARROW))  dy += 1;
+
+    return { dx, dy };
+}
+
+function updateOverdrive(){
+    overdriveActive = false;
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 7 - RESOURCE LIMITATION
+
+    Prevent Overdrive from being used when it is empty.
+    Only allow activation if enough resource remains.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    if (keyIsDown(32) && overdrive > 0){
+        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        MISSION 5 - INPUT ACTIVATION
+
+        Trigger Overdrive while holding SPACE.
+        Turn the shield on only when the input is active.
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+        overdriveActive = true;
+        overdrive -= OVERDRIVE_DRAIN;
+        overdrive = constrain(overdrive, 0, MAX_OVERDRIVE);
+    }
+}
+
+function generateTurretData(x, y){
+    const fireInterval = random(TURRET_FIRE_INTERVAL_MIN, TURRET_FIRE_INTERVAL_MAX);
+    
+    return {
+        x: x,
+        y: y,
+        fireInterval: fireInterval,
+        fireTimer: fireInterval
+    };
+}
+
+function spawnTurret(x, y){
+    turrets.push(generateTurretData(x, y));
+}
+
+function updateTurrets(){
+    for (const turret of turrets){
+        turret.fireTimer -= 1;
+
+        if (turret.fireTimer <= 0){
+            spawnProjectile(turret);
+            turret.fireTimer = turret.fireInterval;
+        }
+    }
+}
+
+function generateProjectileData(turret){
+    const dx = player.x - turret.x;
+    const dy = player.y - turret.y;
+    const len = sqrt(dx ** 2 + dy ** 2);
+
+    return {
+        x: turret.x,
+        y: turret.y,
+        vx: (dx / len) * PROJECTILE_SPEED,
+        vy: (dy / len) * PROJECTILE_SPEED
+    };
+}
+
+function spawnProjectile(turret){
+    projectiles.push(generateProjectileData(turret));
+}
+
+function updateProjectiles(){
+    for (let i = projectiles.length - 1; i >= 0; i--){
+        const projectile = projectiles[i]
+        projectile.x += projectile.vx;
+        projectile.y += projectile.vy;
+
+        if (
+            projectile.x < -PROJECTILE_RADIUS ||
+            projectile.x > width + PROJECTILE_RADIUS ||
+            projectile.y < HUD_HEIGHT - PROJECTILE_RADIUS ||
+            projectile.y > height + PROJECTILE_RADIUS
+        ){
+            projectiles.splice(i, 1);
+        }
+    }
+}
+
+function checkPlayerProjectileCollisions(){
+    for (let i = projectiles.length - 1; i >= 0; i--){
+        const projectile = projectiles[i]
+        
+        const dx = projectile.x - player.x;
+        const dy = projectile.y - player.y;
+        const hitZone = PLAYER_RADIUS + PROJECTILE_RADIUS;
+        
+    
+        if (overdriveActive){
+            const overdriveZone = OVERDRIVE_RADIUS + PROJECTILE_RADIUS;
+            if (dx ** 2 + dy ** 2 <= overdriveZone ** 2){
+                /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                MISSION 8 - OVERDRIVE PROTECTION
+
+                Prevent death while Overdrive is active.
+                Let the shield protect the player from projectiles.
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+                projectiles.splice(i, 1);
+                continue;
+            }
+        }
+
+        if (dx ** 2 + dy ** 2 <= hitZone ** 2){
+            currentGameMode = GAME_MODE.LOSE;
+            return;
+        }
+    }
+}
+
+
+//Our own personal function to DRAW various aspects of the game
+function drawScene(){
+    drawBackground();
+    drawTurrets();
+    drawProjectiles();
+    drawPlayer();
+    drawHud();
+
+    if (currentGameMode === GAME_MODE.START)        drawStartOverlay();
+    else if (currentGameMode === GAME_MODE.LOSE)    drawLoseOverlay();
+}
+
+function drawBackground(){
+    background(BG_COLOR);
+
+    stroke(GRID_LINE_COLOR);
+    strokeWeight(1);
+
+    //vertical lines
+    for (let x = 0; x <= width; x += GRID_SPACING){
+        line(x, 0, x, height);
+    }
+
+    //horizontal lines
+    for (let y = 0; y <= height; y += GRID_SPACING){
+        line(0, y, width, y);
+    }
+}
+
+function drawTurrets(){
+    noStroke();
+
+    for (const turret of turrets){
+        const x = turret.x - TURRET_SIZE / 2;
+        const y = turret.y - TURRET_SIZE / 2;
+
+        fill(TURRET_BODY_COLOR);
+        rect(x, y, TURRET_SIZE, TURRET_SIZE, 4);
+
+        const coreX = turret.x - TURRET_CORE_SIZE / 2;
+        const coreY = turret.y - TURRET_CORE_SIZE / 2;
+
+        fill(TURRET_CORE_COLOR);
+        rect(coreX, coreY, TURRET_CORE_SIZE, TURRET_CORE_SIZE, 2);
+    }
+}
+
+function drawProjectiles(){
+    noStroke();
+
+    for (const projectile of projectiles){
+        fill(PROJECTILE_COLOR);
+        circle(projectile.x, projectile.y, PROJECTILE_RADIUS * 2);
+    }
+}
+
+function drawPlayer(){
+    noStroke();
+
+    //outer body
+    fill(PLAYER_BODY_COLOR);
+    circle(player.x, player.y, PLAYER_RADIUS * 2);
+
+    //inner core
+    fill(PLAYER_CORE_COLOR);
+    circle(player.x, player.y, PLAYER_RADIUS);
+
+    if (overdriveActive){
+        noFill();
+        /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        MISSION 6 - SHIELD VISUAL
+
+        Draw the Overdrive shield around the player.
+        Use a larger outlined circle for the effect.
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+        stroke(OVERDRIVE_COLOR);
+        strokeWeight(4);
+        circle(player.x, player.y, OVERDRIVE_RADIUS * 2);
+    }
+}
+
+function drawHud(){
+    noStroke();
+    fill(HUD_BG_COLOR);
+    rect(0, 0, width, HUD_HEIGHT);
+
+    fill(TEXT_COLOR);
+    textAlign(LEFT, CENTER);
+
+    textSize(18);
+    text("CROSSFIRE", 15, 25);
+
+    textSize(14);
+    text("Move: WASD / Arrows", 15, 45);
+
+    drawOverdriveBar();
+}
+
+function drawOverdriveBar(){
+    const barWidth = 180;
+    const barHeight = 14;
+    const barX = width - barWidth - 15;
+    const barY = 18;
+
+    fill(TEXT_COLOR);
+    textAlign(RIGHT, CENTER);
+    text("OVERDRIVE", barX - 8, barY + barHeight / 2);
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 3 - BAR BACKGROUND
+
+    Draw the background of the Overdrive bar.
+    Create the empty bar shape in the HUD.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    fill(OVERDRIVE_BAR_BG_COLOR);
+    rect(barX, barY, barWidth, barHeight, 6);
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 4 - BAR FILL
+
+    Draw the fill of the Overdrive bar.
+    Show the remaining resource visually.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    fill(OVERDRIVE_BAR_FILL_COLOR);
+    rect(barX, barY, barWidth * (overdrive / MAX_OVERDRIVE), barHeight, 6);
+}
+
+function drawStartOverlay(){
+    noStroke();
+
+    fill(OVERLAY_BG_COLOR);
+    rect(0, 0, width, height);
+
+    fill(TEXT_COLOR);
+    textAlign(CENTER, CENTER);
+
+    textSize(60);
+    text("CROSSFIRE", width / 2, height * 0.30);
+
+    textSize(18);
+    text("Enemy weapon systems are coming online across the battlefield.", width / 2, height * 0.44);
+    text("Stay mobile and survive the incoming crossfire.", width / 2, height * 0.55);
+    text("Press ENTER to begin", width / 2, height * 0.66);
+}
+
+function drawLoseOverlay(){
+    noStroke();
+
+    fill(OVERLAY_BG_COLOR);
+    rect(0, 0, width, height);
+
+    fill(TEXT_COLOR);
+    textAlign(CENTER, CENTER);
+
+    textSize(56);
+    text("UNIT DESTROYED", width / 2, height * 0.30);
+
+    textSize(18);
+    text("You were caught in enemy crossfire.", width / 2, height * 0.44);
+    text("Press ENTER to restart", width / 2, height * 0.55);
+    text("Press R for title screen", width / 2, height * 0.66);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Crossfire</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+
+<style>
+body { margin:0; background:#111111; display:grid; place-items:center; height:100vh; }
+canvas { border-radius:14px; box-shadow:0 18px 60px rgba(0,0,0,.65); }
+</style>
+</head>
+
+<body>
+<script>
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CROSSFIRE - Lesson 1
+The World and Player
+
+TIP: Press Ctrl+F (or Cmd+F) and search "MISSION" to jump through tasks
+
+MISSION CHECKLIST:
+[ ] MISSION 1 - Change the battlefield background color.
+[ ] MISSION 2 - Make the player larger.
+[ ] MISSION 3 - Change the player core color.
+[ ] MISSION 4 - Draw the player core.
+[ ] MISSION 5 - Check keyboard input and update direction.
+[ ] MISSION 6 - Move the player using the direction values.
+[ ] MISSION 7 - Prevent the player from leaving the arena.
+[ ] MISSION 8 - Rename the game in the HUD.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            --- STUDENT EDIT ZONE (SAFE TO MODIFY) ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Constants
+const CANVAS_WIDTH = 900;
+const CANVAS_HEIGHT = 600;
+const HUD_HEIGHT = 60;
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MISSION 2 - PLAYER SIZE
+
+Increase the PLAYER_RADIUS value.
+Make the player stand out more on the battlefield.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+const PLAYER_RADIUS = 5;
+
+const PLAYER_SPEED = 5;
+
+const GRID_SPACING = 50;
+
+//Color Palettes
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MISSION 1 - BACKGROUND COLOR
+
+Change the background color.
+Observe how it changes the mood of the battlefield.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+const BG_COLOR = "#99991F";                 
+
+const GRID_LINE_COLOR = "rgba(160, 200, 160, 0.05)";
+
+const HUD_BG_COLOR = "rgba(0, 0, 0, 0.65)";
+const TEXT_COLOR = "#E6EDF3";
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MISSION 3 - PLAYER VISUAL IDENTITY
+
+Change the PLAYER_CORE_COLOR.
+Give the player a new visual identity.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+const PLAYER_BODY_COLOR = "#38B988";        
+const PLAYER_CORE_COLOR = "#006621";         
+
+//Game Fonts
+const GAME_FONT = "monospace";
+
+
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                --- END OF STUDENT EDIT ZONE ---
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+//Gameplay Variables
+let player = { x: 0, y: 0 };
+
+
+//p5 game loop functions (called automatically at start / every frame)
+function setup(){
+    createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    textFont(GAME_FONT);
+    resetGameToDefaults();
+}
+
+function draw(){
+    updatePlayer();
+    drawScene();
+}
+
+
+//Our own personal functions to UPDATE various aspects of the game
+function resetGameToDefaults(){
+    player.x = width / 2;
+    player.y = (HUD_HEIGHT + height) / 2 + 120;
+}
+
+function updatePlayer(){
+    const moveDirection = getInputDirection();
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 6 - PLAYER MOVEMENT
+
+    Move the player using the direction values and speed.
+    Connect the input system to the player position.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    player.x += moveDirection.dx * PLAYER_SPEED;
+    player.y += 0;
+
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 7 - MOVEMENT BOUNDARIES
+
+    Keep the player inside the playable area.
+    Use constraints to prevent leaving the arena.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    player.x = constrain(player.x, PLAYER_RADIUS, width - PLAYER_RADIUS);
+    
+}
+
+function getInputDirection(){
+    let dx = 0;
+    let dy = 0;
+
+    if (keyIsDown(65) || keyIsDown(LEFT_ARROW))  dx -= 1;
+    if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) dx += 1;
+    if (keyIsDown(87) || keyIsDown(UP_ARROW))    dy -= 1;
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 5 - INPUT CONNECTION
+
+    Check keyboard input and update the direction values.
+    Use the existing key pattern to respond to movement keys.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    
+
+    return { dx, dy };
+}
+
+
+//Our own personal function to DRAW various aspects of the game
+function drawScene(){
+    drawBackground();
+    drawPlayer();
+    drawHud();
+}
+
+function drawBackground(){
+    background(BG_COLOR);
+
+    stroke(GRID_LINE_COLOR);
+    strokeWeight(1);
+
+    //vertical lines
+    for (let x = 0; x <= width; x += GRID_SPACING){
+        line(x, 0, x, height);
+    }
+
+    //horizontal lines
+    for (let y = 0; y <= height; y += GRID_SPACING){
+        line(0, y, width, y);
+    }
+}
+
+function drawPlayer(){
+    noStroke();
+
+    //outer body
+    fill(PLAYER_BODY_COLOR);
+    circle(player.x, player.y, PLAYER_RADIUS * 2);
+
+    //inner core
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 4 - PLAYER CORE
+
+    Draw the player core.
+    Give an accent color to the player body.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+}
+
+function drawHud(){
+    noStroke();
+    fill(HUD_BG_COLOR);
+    rect(0, 0, width, HUD_HEIGHT);
+
+    fill(TEXT_COLOR);
+    textAlign(LEFT, CENTER);
+
+    textSize(18);
+    /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MISSION 8 - HUD IDENTITY
+
+    Change the game title text.
+    Give your version a custom name.
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    text("GAME NAME", 15, 25);
+
+    textSize(14);
+    text("Move: WASD / Arrows", 15, 45);
+}
+</script>
+</body>
+</html>
