@@ -1,7 +1,9 @@
 Crossfire Game 
+
 This repository contains the starter and final code for the Crossfire game, featured in my YouTube tutorial on building JavaScript games using a mission-based learning system.
 
 What This Is: 
+
 In this project, you’ll learn how a complete game is built from scratch using real JavaScript — no game engine, no shortcuts. 
 Instead of following a long tutorial, you’ll complete missions directly inside the code, building the game step by step.
 
@@ -12,13 +14,16 @@ What You’ll Learn:
 - How to break complex problems into simple steps
 
 Project Structure:
+
 starter/ → Begin here and follow along with the video lesson
 final/ → The final completed version of the lesson for reference
 
 Watch the Full Tutorial: 
+
 Follow along step-by-step on YouTube: [PASTE YOUR YOUTUBE LINK HERE]
 
 Want More? If you enjoyed this project, check out my full programs: 
+
 Live Camps: [YOUR LINK] 
 Courses: [YOUR LINK]
 
