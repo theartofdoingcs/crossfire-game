@@ -20,12 +20,12 @@ final/ → The final completed version of the lesson for reference
 
 Watch the Full Tutorial: 
 
-Follow along step-by-step on YouTube: [PASTE YOUR YOUTUBE LINK HERE]
+Follow along step-by-step on YouTube: https://www.youtube.com/playlist?list=PL-dVY4Y564T6Z3I_uiWdvxsyVLpfUZuLa
 
 Want More? If you enjoyed this project, check out my full programs: 
 
-Live Camps: [YOUR LINK] 
-Courses: [YOUR LINK]
+Live Camps: https://theartofdoingcs.lovable.app/camps
+Courses: https://theartofdoingcs.lovable.app/courses
 
 Usage This code is provided for educational use. You are welcome to:
 - Use this code to learn and build your own projects
